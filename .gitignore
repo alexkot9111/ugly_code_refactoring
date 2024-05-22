@@ -1,0 +1,4 @@
+#Ignore PHPStorm Files
+.idea
+vendor
+composer.lock
