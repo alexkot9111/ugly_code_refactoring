@@ -9,27 +9,11 @@ class Commissions
         'AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PO', 'PT', 'RO', 'SE', 'SI', 'SK'
     ];
 
-    // Define static rates
-    private string $staticRates = '{
-        "rates": {
-            "EUR": 1,
-            "USD": 1.083564,
-            "JPY": 169.505143,
-            "GBP": 0.850435
-        }
-    }';
-
-    // Define static bins
-    private array $staticBins = [
-        '516793' => '{"country":{"alpha2":"LT"}}',
-        '4745030' => '{"country":{"alpha2":"LT"}}',
-        '41417360' => '{"country":{"alpha2":"LT"}}',
-        '45417360' => '{"country":{"alpha2":"JP"}}',
-        '45717360' => '{"country":{"alpha2":"DK"}}',
-    ];
-
     // Define rates
-    private array $rates = [];
+    public array $rates = [];
+
+    // Define bins
+    public array $bins = [];
 
     // Define rate API access params
     private string $transactionBaseURL = 'https://lookup.binlist.net/';
@@ -42,10 +26,9 @@ class Commissions
      * Get commissions based on transactions from a file
      *
      * @param string $transactionsFileName
-     * @param bool $useStaticApi
      * @return array
      */
-    public function getCommissions(string $transactionsFileName, bool $useStaticApi = false): ?array
+    public function getCommissions(string $transactionsFileName): ?array
     {
         $filePath = __DIR__ . '/data/' . $transactionsFileName;
 
@@ -58,15 +41,15 @@ class Commissions
             return ['Failed to read the file: ' . $transactionsFileName];
         }
 
-        $ratesFile = !$useStaticApi
-            ? $this->getApiData($this->rateAccessURL, ['apikey' => $this->rateAccessKey])
-            : $this->staticRates;
-        if ($ratesFile === false) {
-            return ['Failed to read the rates file.'];
-        }
+        if(empty($this->rates)) {
+            $ratesFile = $this->getApiData($this->rateAccessURL, ['apikey' => $this->rateAccessKey]);
+            if ($ratesFile === false) {
+                return ['Failed to read the rates file.'];
+            }
 
-        $ratesFileJson = json_decode($ratesFile, true);
-        $this->rates = $ratesFileJson['rates'] ?? [];
+            $ratesFileJson = json_decode($ratesFile, true);
+            $this->rates = $ratesFileJson['rates'] ?? [];
+        }
 
         $commissions = [];
         $transactions = explode("\n", $transactionsFile);
@@ -82,9 +65,9 @@ class Commissions
                 continue;
             }
 
-            $binResultsFile = !$useStaticApi
-                ? $this->getApiData($this->transactionBaseURL . $transaction['bin'])
-                : $this->staticBins[$transaction['bin']];
+            $binResultsFile = !empty($this->bins)
+                ? $this->bins[$transaction['bin']]
+                : $this->getApiData($this->transactionBaseURL . $transaction['bin']);
             if ($binResultsFile === false) {
                 $commissions[] = 'Transaction #' . $transaction['bin'] . '. An error occurred while making the API request, please try later.';
                 continue;
